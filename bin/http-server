@@ -45,7 +45,6 @@ if (argv.h || argv.help) {
     '               Optionally provide a URL path to open the browser window to.',
     '  -c           Cache time (max-age) in seconds [3600], e.g. -c10 for 10 seconds.',
     '               To disable caching, use -c-1.',
-    // USER REQUEST 1: Add a new cache parameter to avoid conflict with -c
     '  --cache-time An alternative to -c to avoid conflict with PM2. Use --cache-time=-1 to disable caching.',
     '  -t           Connections timeout in seconds [120], e.g. -t60 for 1 minute.',
     '               To disable timeout, use -t0',
@@ -56,11 +55,9 @@ if (argv.h || argv.help) {
     '  --proxy-options  Pass options to proxy using nested dotted objects. e.g.: --proxy-options.secure false',
     '',
     '  --username   Username for basic authentication [none]',
-    '               Can also be specified with the env variable NODE_HTTP_SERVER_USERNAME',
     '  --password   Password for basic authentication [none]',
-    '               Can also be specified with the env variable NODE_HTTP_SERVER_PASSWORD',
     '',
-    '  -S --tls --ssl   Enable secure request serving with TLS/SSL (HTTPS)',
+    '  -S --tls --ssl    Enable secure request serving with TLS/SSL (HTTPS)',
     '  -C --cert    Path to TLS cert file (default: cert.pem)',
     '  -K --key     Path to TLS key file (default: key.pem)',
     '',
@@ -68,7 +65,12 @@ if (argv.h || argv.help) {
     '  --no-dotfiles      Do not show dotfiles',
     '  --mimetypes        Path to a .types file for custom mimetype definition',
     '  -h --help          Print this list and exit.',
-    '  -v --version       Print the version and exit.'
+    '  -v --version       Print the version and exit.',
+    '',
+    'FSE Options:',
+    '  --p3d-server-url      URL of the P3D JSON-RPC server. (REQUIRED for FSE features)',
+    '  --sync-interval       Interval in ms to sync with P3D server [30000]',
+
   ].join('\n'));
   process.exit();
 }
@@ -83,12 +85,10 @@ var port = argv.p || argv.port || parseInt(process.env.PORT, 10),
     version = argv.v || argv.version,
     baseDir = argv['base-dir'],
     logger;
-
 var proxyOptionsBooleanProps = [
   'ws', 'xfwd', 'secure', 'toProxy', 'prependPath', 'ignorePath', 'changeOrigin',
   'preserveHeaderKeyCase', 'followRedirects', 'selfHandleResponse'
 ];
-
 if (proxyOptions) {
   Object.keys(proxyOptions).forEach(function (key) {
     if (proxyOptionsBooleanProps.indexOf(key) > -1) {
@@ -134,6 +134,12 @@ if (version) {
   process.exit();
 }
 
+// FSE 功能需要 p3d-server-url
+if (argv['p3d-server-url']) {
+    logger.info(chalk.green('FSE mode enabled.'));
+}
+
+
 if (!port) {
   portfinder.basePort = 8080;
   portfinder.getPort(function (err, port) {
@@ -164,9 +170,13 @@ function listen(port) {
     mimetypes: argv.mimetypes,
     username: argv.username || process.env.NODE_HTTP_SERVER_USERNAME,
     password: argv.password || process.env.NODE_HTTP_SERVER_PASSWORD,
-    headers: {}
+    headers: {},
+    // FSE Options
+    fse: {
+        p3dServerUrl: argv['p3d-server-url'],
+        syncInterval: argv['sync-interval']
+    }
   };
-  
   // USER REQUEST 1 (Implementation): If --cache-time is specified, it overrides -c (cache)
   if (argv['cache-time'] !== undefined) {
     options.cache = argv['cache-time'];
@@ -255,7 +265,6 @@ function listen(port) {
       ([chalk.yellow('Default File Extension: '), argv.e ? chalk.cyan(argv.e) : (argv.ext ? chalk.cyan(argv.ext) : chalk.red('none'))].join('')),
       ([chalk.yellow('Base directory: '), baseDir ? chalk.cyan(baseDir) : chalk.cyan('/')].join(''))
     ].join('\n'));
-
     if (options.headers) {
       logger.info(chalk.yellow('Additional Headers:'));
       for (let k in options.headers) {
@@ -265,8 +274,6 @@ function listen(port) {
     }
 
     logger.info(chalk.yellow('\nAvailable on:'));
-
-
     if (argv.a && (host !== '::' || host !== '0.0.0.0')) {
       logger.info(`  ${protocol}${host}:${chalk.green(port.toString())}${path}`);
     } else {
@@ -276,6 +283,7 @@ function listen(port) {
             logger.info(('  ' + protocol + details.address + ':' + chalk.green(port.toString()) + path));
           }
           if (details.family === 'IPv6' && !details.address.startsWith("fe80") ) { // Ignoring Ipv6-Link Local addresses
+      
             logger.info(('  ' + protocol + details.address + ':' + chalk.green(port.toString())));
           }
         });
@@ -328,4 +336,3 @@ process.on('SIGTERM', function () {
   logger.info(chalk.red('http-server stopped.'));
   process.exit();
 });
-
