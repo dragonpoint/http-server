@@ -68,9 +68,11 @@ if (argv.h || argv.help) {
     '  -v --version       Print the version and exit.',
     '',
     'FSE Options:',
-    '  --p3d-server-url      URL of the P3D JSON-RPC server. (REQUIRED for FSE features)',
-    '  --sync-interval       Interval in ms to sync with P3D server [30000]',
-
+    '  --p3d-get-results-url     URL for the P3D \'getTestResults\' HTTP service. (REQUIRED for sync)',
+    '  --p3d-delete-results-url  URL for the P3D \'deleteTestResults\' HTTP service. (REQUIRED for deletion)',
+    '  --sync-interval           Interval in ms to sync with P3D server [30000]',
+    '  --delete-interval         Interval in ms to process the deletion queue [Defaults to sync-interval]',
+    '  --delete-delay-hours      Delay in hours before a completed record is deleted from P3D [24]',
   ].join('\n'));
   process.exit();
 }
@@ -134,8 +136,7 @@ if (version) {
   process.exit();
 }
 
-// FSE 功能需要 p3d-server-url
-if (argv['p3d-server-url']) {
+if (argv['p3d-get-results-url']) {
     logger.info(chalk.green('FSE mode enabled.'));
 }
 
@@ -171,17 +172,18 @@ function listen(port) {
     username: argv.username || process.env.NODE_HTTP_SERVER_USERNAME,
     password: argv.password || process.env.NODE_HTTP_SERVER_PASSWORD,
     headers: {},
-    // FSE Options
     fse: {
-        p3dServerUrl: argv['p3d-server-url'],
-        syncInterval: argv['sync-interval']
+        p3dGetResultsUrl: argv['p3d-get-results-url'],
+        p3dDeleteResultsUrl: argv['p3d-delete-results-url'],
+        syncInterval: argv['sync-interval'],
+        deleteInterval: argv['delete-interval'],
+        deleteDelayHours: argv['delete-delay-hours']
     }
   };
-  // USER REQUEST 1 (Implementation): If --cache-time is specified, it overrides -c (cache)
+
   if (argv['cache-time'] !== undefined) {
     options.cache = argv['cache-time'];
   }
-
 
   function setHeader(str) {
     const m = /^(.+?)\s*(:\s*(.*))$/.exec(str);
