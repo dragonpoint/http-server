@@ -117,7 +117,7 @@ if (!argv.s && !argv.silent) {
       else {
         logger.info(
           '[%s] %s "%s %s" "%s"',
-          date, ip, chalk.cyan(req.method), chalk.cyan(req.url),
+           date, ip, chalk.cyan(req.method), chalk.cyan(decodeURIComponent(req.url)),
           req.headers['user-agent']
         );
       }
